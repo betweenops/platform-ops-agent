@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "name": "vector-ingest",
+    "namespace": "observability",
+    "kind": "Deployment"
+  },
+  "deployment_status": {
+    "desired_replicas": 2,
+    "available_replicas": 0,
+    "progressing": false
+  },
+  "pod_status": {
+    "phase": "Pending",
+    "restart_count": 0,
+    "container_state": {}
+  },
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "FailedScheduling",
+      "message": "0/4 nodes are available: 2 Insufficient cpu, 2 Insufficient memory."
+    }
+  ],
+  "logs": []
+}
+

@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "name": "orders-worker",
+    "namespace": "staging-orders",
+    "kind": "Deployment"
+  },
+  "deployment_status": {
+    "desired_replicas": 1,
+    "available_replicas": 0,
+    "progressing": false
+  },
+  "pod_status": {
+    "phase": "Pending",
+    "restart_count": 0,
+    "container_state": {
+      "waiting": {
+        "reason": "ImagePullBackOff"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "Failed",
+      "message": "Failed to pull image \"registry.example.com/orders-worker:v2.9.1\": rpc error: manifest unknown"
+    },
+    {
+      "type": "Warning",
+      "reason": "Failed",
+      "message": "Error: ErrImagePull"
+    }
+  ],
+  "logs": []
+}
+

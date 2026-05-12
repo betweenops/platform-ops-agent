@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "name": "payments-api",
+    "namespace": "prod-payments",
+    "kind": "Deployment"
+  },
+  "deployment_status": {
+    "desired_replicas": 3,
+    "available_replicas": 0,
+    "progressing": false
+  },
+  "pod_status": {
+    "phase": "Running",
+    "restart_count": 7,
+    "container_state": {
+      "waiting": {
+        "reason": "CrashLoopBackOff"
+      },
+      "last_terminated": {
+        "reason": "Error",
+        "exit_code": 1
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "BackOff",
+      "message": "Back-off restarting failed container api in pod payments-api-68d5f74bb8-f9t2l"
+    },
+    {
+      "type": "Warning",
+      "reason": "Unhealthy",
+      "message": "Readiness probe failed: Get http://10.42.0.18:8080/healthz: connection refused"
+    }
+  ],
+  "logs": [
+    "2026-05-12T10:10:03Z INFO starting payments api",
+    "2026-05-12T10:10:04Z ERROR missing required environment variable DATABASE_URL",
+    "2026-05-12T10:10:04Z FATAL startup aborted"
+  ]
+}
+

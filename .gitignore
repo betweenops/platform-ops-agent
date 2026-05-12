@@ -1,0 +1,5 @@
+vars/*.local.json
+*.local.json
+.env
+.env.*
+
