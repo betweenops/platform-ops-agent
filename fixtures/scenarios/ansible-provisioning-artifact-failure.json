@@ -1,0 +1,34 @@
+{
+  "scenario_type": "ansible_operator_failure",
+  "metadata": {
+    "name": "boot-prep-lab01",
+    "namespace": "ops-system",
+    "kind": "BootProvisioning",
+    "group": "automation.example.io"
+  },
+  "operator_context": {
+    "controller": "automation-controller",
+    "playbook": "playbooks/provisioning/provisioning.yml",
+    "imported_playbook": "playbooks/provisioning/provisioning_pb.yml",
+    "playbook_family": "provisioning"
+  },
+  "ansible_failure": {
+    "playbook_family": "provisioning",
+    "host": "controller-node",
+    "task_name": "check for dns image in registry",
+    "task_file": "roles/provisioning/tasks/main.yml",
+    "module": "ansible.builtin.uri",
+    "message": "Status code was -1 and not [200]: Request failed: <urlopen error [Errno 111] Connection refused>",
+    "stderr": "fatal: [controller-node]: FAILED! => {\"changed\": false, \"elapsed\": 0, \"msg\": \"Status code was -1 and not [200]: Request failed: <urlopen error [Errno 111] Connection refused>\", \"url\": \"https://registry.internal.example.invalid/repository/docker-group/v2/networkboot/dns-service/manifests/2.89\"}"
+  },
+  "logs": [
+    "TASK [check_dependencies : loop through dependencies] ********************************",
+    "ok: [controller-node] => (item={'name': 'hardware-control-lab01', 'kind': 'HardwareControl', 'apiVersion': 'automation.example.io/v1alpha1'})",
+    "TASK [provisioning : Login to registry] ************************************************",
+    "ok: [controller-node]",
+    "TASK [provisioning : check for dns image in registry] **********************************",
+    "fatal: [controller-node]: FAILED! => {\"changed\": false, \"elapsed\": 0, \"msg\": \"Status code was -1 and not [200]: Request failed: <urlopen error [Errno 111] Connection refused>\", \"url\": \"https://registry.internal.example.invalid/repository/docker-group/v2/networkboot/dns-service/manifests/2.89\"}",
+    "PLAY RECAP **************************************************************************",
+    "controller-node : ok=7 changed=1 unreachable=0 failed=1 skipped=0 rescued=0 ignored=0"
+  ]
+}

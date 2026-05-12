@@ -1,0 +1,49 @@
+{
+  "scenario_type": "ansible_operator_failure",
+  "metadata": {
+    "name": "node-config-a",
+    "namespace": "ops-system",
+    "kind": "NodeConfiguration",
+    "group": "automation.example.io"
+  },
+  "environment": {
+    "mode": "airgap"
+  },
+  "operator_context": {
+    "controller": "automation-controller",
+    "playbook": "playbooks/node-config/node-config.yml",
+    "imported_playbook": "playbooks/node-config/node-config_pb.yml",
+    "playbook_family": "node-config"
+  },
+  "related_resources": [
+    {
+      "kind": "BootProvisioning",
+      "name": "boot-prep-a"
+    },
+    {
+      "kind": "HardwareControl",
+      "name": "hardware-control-a"
+    }
+  ],
+  "ansible_failure": {
+    "playbook_family": "node-config",
+    "host": "controller-node",
+    "task_name": "Wait for server to come back online",
+    "task_file": "playbooks/node-config/node-config_pb.yml",
+    "module": "ansible.builtin.wait_for",
+    "message": "Timeout when waiting for node-01.internal.example.invalid:22",
+    "stderr": "fatal: [controller-node -> localhost]: FAILED! => {\"changed\": false, \"elapsed\": 120, \"msg\": \"Timeout when waiting for node-01.internal.example.invalid:22\"}"
+  },
+  "logs": [
+    "TASK [provisioning : check for custom airgap initrd.gz file in registry] **************",
+    "ok: [controller-node] => {\"msg\": \"custom airgap initrd.gz not found, using standard path\"}",
+    "TASK [provisioning : Download boot image from registry for each netboot] ***************",
+    "failed: [controller-node] (item=debian) => {\"changed\": false, \"msg\": \"Request failed\", \"status_code\": 404, \"url\": \"https://registry.internal.example.invalid/repository/raw/netboot.tar.gz\"}",
+    "TASK [hardware-control : Install netbooted operating system] ***************************",
+    "changed: [controller-node] => (item=node-01)",
+    "TASK [Wait for server to come back online] ********************************************",
+    "fatal: [controller-node -> localhost]: FAILED! => {\"changed\": false, \"elapsed\": 120, \"msg\": \"Timeout when waiting for node-01.internal.example.invalid:22\"}",
+    "PLAY RECAP **************************************************************************",
+    "controller-node : ok=15 changed=4 unreachable=0 failed=1 skipped=0 rescued=0 ignored=0"
+  ]
+}

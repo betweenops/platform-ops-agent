@@ -21,16 +21,16 @@ class AnalyzerTests(unittest.TestCase):
 
         self.assertTrue(any("capacity" in signal.lower() for signal in report["signals"]))
 
-    def test_edgeops_pxe_failure_reports_nexus_context(self) -> None:
-        report = analyze_scenario(load_scenario("edgeops-pxe-nexus-failure"))
+    def test_ansible_provisioning_failure_reports_registry_context(self) -> None:
+        report = analyze_scenario(load_scenario("ansible-provisioning-artifact-failure"))
 
         self.assertEqual(report["health"], "failed")
-        self.assertEqual(report["operator_context"]["playbook_family"], "pxe")
-        self.assertIn("Nexus", report["task_intent"])
-        self.assertTrue(any("nexus" in signal.lower() for signal in report["signals"]))
+        self.assertEqual(report["operator_context"]["playbook_family"], "provisioning")
+        self.assertIn("internal registry", report["task_intent"])
+        self.assertTrue(any("registry" in signal.lower() for signal in report["signals"]))
 
-    def test_edgeops_airgap_wait_loop_mentions_hidden_artifact_cause(self) -> None:
-        report = analyze_scenario(load_scenario("edgeops-airgap-blade-wait-loop"))
+    def test_ansible_airgap_wait_loop_mentions_hidden_artifact_cause(self) -> None:
+        report = analyze_scenario(load_scenario("ansible-airgap-wait-loop"))
 
         self.assertEqual(report["health"], "failed")
         self.assertEqual(report["operator_context"]["environment_mode"], "airgap")

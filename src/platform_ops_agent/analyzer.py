@@ -24,8 +24,8 @@ def load_scenario(identifier: str) -> dict:
 
 def analyze_scenario(scenario: dict) -> dict:
     scenario_type = scenario.get("scenario_type", "kubernetes_workload")
-    if scenario_type == "edgeops_ansible_failure":
-        return _analyze_edgeops_ansible_failure(scenario)
+    if scenario_type == "ansible_operator_failure":
+        return _analyze_ansible_operator_failure(scenario)
 
     metadata = scenario.get("metadata", {})
     pod_status = scenario.get("pod_status", {})
@@ -234,18 +234,18 @@ def _dedupe(items: list[str]) -> list[str]:
     return deduped
 
 
-EDGEOPS_PLAYBOOK_INTENTS = {
-    "pxe": "Prepare PXE, DHCP, DNS, and boot artifacts so bare metal systems can install successfully.",
-    "redfish": "Discover BMC endpoints and apply Redfish-based boot and reboot actions for target systems.",
-    "proxmox": "Bring Proxmox nodes online and configure repositories, networking, and monitoring.",
-    "s3": "Install and configure RADOS Gateway components and collect resulting object storage details.",
-    "rke2": "Build and deploy the RKE2 cluster components required for the edge Kubernetes environment.",
-    "bigbang": "Deploy the Big Bang application platform on top of the provisioned cluster.",
-    "opnsense": "Build and start OPNsense firewall virtual machine resources for the edge environment.",
+PLAYBOOK_INTENTS = {
+    "provisioning": "Prepare DHCP, DNS, and boot artifacts so target systems can install successfully.",
+    "hardware-control": "Discover out-of-band management endpoints and apply boot or reboot actions for target systems.",
+    "node-config": "Bring target nodes online and configure repositories, networking, and monitoring.",
+    "object-storage": "Install and configure object storage components and collect resulting service details.",
+    "cluster-bootstrap": "Build and deploy the Kubernetes cluster components required for the target environment.",
+    "platform-apps": "Deploy higher-level platform applications on top of the provisioned cluster.",
+    "network-appliance": "Build and start firewall or network appliance virtual machine resources.",
 }
 
 
-def _analyze_edgeops_ansible_failure(scenario: dict) -> dict:
+def _analyze_ansible_operator_failure(scenario: dict) -> dict:
     metadata = scenario.get("metadata", {})
     operator_context = scenario.get("operator_context", {})
     failure = scenario.get("ansible_failure", {})
@@ -288,24 +288,24 @@ def _analyze_edgeops_ansible_failure(scenario: dict) -> dict:
         )
 
     if any(token in focused_text for token in ("nexus", "docker_login", "manifests", "failed to fetch")):
-        signals.append("The failure happened while resolving artifacts from Nexus or an upstream package/image source.")
-        causes.append("Nexus connectivity, credentials, repository paths, or mirrored artifact availability are incorrect.")
+        signals.append("The failure happened while resolving artifacts from an internal registry or mirrored package source.")
+        causes.append("Registry connectivity, credentials, repository paths, or mirrored artifact availability are incorrect.")
         next_steps.extend(
             [
-                "Verify `nexus_url`, repository names, and image or artifact paths supplied to the role.",
-                "Check network reachability from the edge-controller execution host to Nexus and any upstream fallback endpoints.",
-                "Confirm the Nexus credentials used by the task are valid for the referenced repos.",
+                "Verify the registry URL, repository names, and image or artifact paths supplied to the role.",
+                "Check network reachability from the automation controller to the internal registry and any upstream fallback endpoints.",
+                "Confirm the registry credentials used by the task are valid for the referenced repositories.",
             ]
         )
 
-    if playbook_family == "redfish" or any(
-        token in task_text for token in ("redfish", "/redfish/v1/", "ilo", "idrac")
+    if playbook_family == "hardware-control" or any(
+        token in task_text for token in ("redfish", "/redfish/v1/", "ilo", "idrac", "bmc")
     ):
-        signals.append("The failure intersects with Redfish or BMC communication.")
+        signals.append("The failure intersects with out-of-band management or BMC communication.")
         causes.append("The target BMC may be unreachable, using the wrong credentials, or presenting an unexpected endpoint or certificate.")
         next_steps.extend(
             [
-                "Test the Redfish endpoint directly from the controller network path.",
+                "Test the out-of-band management endpoint directly from the controller network path.",
                 "Confirm BMC credentials, port, and vendor assumptions used by the role.",
             ]
         )
@@ -321,13 +321,13 @@ def _analyze_edgeops_ansible_failure(scenario: dict) -> dict:
         )
 
     if _looks_like_airgap_artifact_issue(playbook_family, environment, logs, focused_text):
-        signals.append("This may be a downstream symptom of missing PXE or OS artifacts in an air-gapped content path.")
-        causes.append("Required boot images, initrd content, or mirrored packages may be absent from the local Nexus repositories.")
+        signals.append("This may be a downstream symptom of missing boot or OS artifacts in an air-gapped content path.")
+        causes.append("Required boot images, initrd content, or mirrored packages may be absent from the local artifact repositories.")
         next_steps.extend(
             [
-                "Verify the required PXE images, Debian netboot artifacts, and any custom airgap initrd files exist in local Nexus.",
+                "Verify the required boot images, OS netboot artifacts, and any custom air-gap initrd files exist in the local artifact store.",
                 "Check whether the host ever began the expected OS install, rather than only watching for it to return on the network.",
-                "Correlate this failure with the prerequisite Pxe reconciliation to see whether artifact preparation failed earlier.",
+                "Correlate this failure with the prerequisite boot-preparation stage to see whether artifact setup failed earlier.",
             ]
         )
 
@@ -342,7 +342,7 @@ def _analyze_edgeops_ansible_failure(scenario: dict) -> dict:
         next_steps.extend(
             [
                 "Confirm the resource exists with the expected apiVersion, kind, name, and namespace.",
-                "Check the edge-controller service account permissions for read or patch access.",
+                "Check the automation controller service account permissions for read or patch access.",
             ]
         )
 
@@ -355,8 +355,8 @@ def _analyze_edgeops_ansible_failure(scenario: dict) -> dict:
             ]
         )
 
-    task_intent = _edgeops_task_intent(playbook_family, task_name, task_file)
-    playbook_intent = EDGEOPS_PLAYBOOK_INTENTS.get(playbook_family or "", "")
+    task_intent = _task_intent(playbook_family, task_name, task_file)
+    playbook_intent = PLAYBOOK_INTENTS.get(playbook_family or "", "")
 
     if playbook_intent:
         causes.append(f"The surrounding playbook is responsible for: {playbook_intent}")
@@ -399,51 +399,51 @@ def _analyze_edgeops_ansible_failure(scenario: dict) -> dict:
 
 
 def _infer_playbook_family(operator_context: dict) -> str:
-    for key in ("playbook_family", "playbook", "imported_playbook"):
+    explicit = operator_context.get("playbook_family", "")
+    if explicit:
+        return explicit
+    aliases = {
+        "pxe": "provisioning",
+        "redfish": "hardware-control",
+        "proxmox": "node-config",
+        "s3": "object-storage",
+        "rke2": "cluster-bootstrap",
+        "bigbang": "platform-apps",
+        "opnsense": "network-appliance",
+    }
+    for key in ("playbook", "imported_playbook"):
         value = operator_context.get(key, "")
         if value:
             parts = Path(value).parts
             for part in parts:
-                if part in EDGEOPS_PLAYBOOK_INTENTS:
-                    return part
+                if part in aliases:
+                    return aliases[part]
     return ""
 
 
-def _edgeops_task_intent(playbook_family: str, task_name: str, task_file: str) -> str:
+def _task_intent(playbook_family: str, task_name: str, task_file: str) -> str:
     text = f"{task_name} {task_file}".lower()
 
     if "check_dependencies" in text:
         return "Confirm upstream dependent custom resources completed successfully before continuing this reconciliation."
-    if "check for dns image in nexus" in text:
-        return "Verify whether the dnsmasq container image exists in Nexus so the role can choose a mirrored image source."
-    if "check for dhcpd image in nexus" in text:
-        return "Verify whether the DHCP container image exists in Nexus before starting the PXE DHCP service."
-    if "check for tftp image in nexus" in text:
-        return "Verify whether the TFTP container image exists in Nexus before preparing boot assets."
-    if "login to nexus" in text:
-        return "Authenticate to Nexus so later image pulls and artifact downloads can use the internal registry."
+    if "check for dns image in nexus" in text or "check for dns image in registry" in text:
+        return "Verify whether the DNS service container image exists in the internal registry so the role can choose a mirrored image source."
+    if "check for dhcpd image in nexus" in text or "check for dhcpd image in registry" in text:
+        return "Verify whether the DHCP container image exists in the internal registry before starting the boot service."
+    if "check for tftp image in nexus" in text or "check for tftp image in registry" in text:
+        return "Verify whether the TFTP container image exists in the internal registry before preparing boot assets."
+    if "login to nexus" in text or "login to registry" in text:
+        return "Authenticate to the internal registry so later image pulls and artifact downloads can succeed."
     if "wait for server to come back online" in text:
         return "Pause reconciliation until the target host is reachable again after reboot or power-cycle activity."
     if "configure repos" in text or "configure_repos" in text:
-        return "Prepare package repositories and trust keys so the host can install required Proxmox packages."
+        return "Prepare package repositories and trust keys so the host can install required node packages."
     if "configure interfaces" in text or "proxmox_configure_if" in text:
         return "Apply the target network interface and bonding configuration required for the host."
     if "redfish_force_boot" in text:
-        return "Patch the Redfish-related objects so future reconciliations do not force another install boot."
-    if playbook_family == "pxe":
-        return EDGEOPS_PLAYBOOK_INTENTS["pxe"]
-    if playbook_family == "redfish":
-        return EDGEOPS_PLAYBOOK_INTENTS["redfish"]
-    if playbook_family == "proxmox":
-        return EDGEOPS_PLAYBOOK_INTENTS["proxmox"]
-    if playbook_family == "rke2":
-        return EDGEOPS_PLAYBOOK_INTENTS["rke2"]
-    if playbook_family == "s3":
-        return EDGEOPS_PLAYBOOK_INTENTS["s3"]
-    if playbook_family == "bigbang":
-        return EDGEOPS_PLAYBOOK_INTENTS["bigbang"]
-    if playbook_family == "opnsense":
-        return EDGEOPS_PLAYBOOK_INTENTS["opnsense"]
+        return "Patch the hardware-control objects so future reconciliations do not force another install boot."
+    if playbook_family in PLAYBOOK_INTENTS:
+        return PLAYBOOK_INTENTS[playbook_family]
     return "Clarify what this task was trying to accomplish by mapping it to the surrounding role or playbook stage."
 
 
@@ -484,4 +484,4 @@ def _looks_like_airgap_artifact_issue(
         )
     )
 
-    return airgap_hint and (artifact_hint or playbook_family in {"pxe", "redfish", "proxmox"}) and wait_symptom
+    return airgap_hint and (artifact_hint or playbook_family in {"provisioning", "hardware-control", "node-config"}) and wait_symptom

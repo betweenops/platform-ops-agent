@@ -176,16 +176,16 @@ Render JSON output:
 platform-ops-agent analyze missing-secret --json
 ```
 
-Analyze an EdgeOps-style Ansible/operator failure:
+Analyze a generic Ansible/operator provisioning failure:
 
 ```bash
-platform-ops-agent analyze edgeops-pxe-nexus-failure
+platform-ops-agent analyze ansible-provisioning-artifact-failure
 ```
 
 Analyze a hidden air-gap failure where the visible symptom is a blade never returning:
 
 ```bash
-platform-ops-agent analyze edgeops-airgap-blade-wait-loop
+platform-ops-agent analyze ansible-airgap-wait-loop
 ```
 
 ## Sanitization
@@ -204,13 +204,13 @@ If you need environment-specific values while building local scenarios, keep the
 
 - `src/platform_ops_agent/`: CLI and analysis logic
 - `fixtures/scenarios/`: replayable Kubernetes failure examples
-- `fixtures/scenarios/edgeops-*.json`: replayable EdgeOps controller failure examples
+- `fixtures/scenarios/ansible-*.json`: replayable Ansible/operator failure examples
 - `tests/`: baseline tests for the deterministic analyzer
 
 ## Immediate Next Build Steps
 
 - add more scenario fixtures from real-world Kubernetes failures
-- add real `edge-controller` log excerpts and map more task files to operator intent
+- add real controller log excerpts and map more task files to operator intent
 - correlate downstream wait-loop failures with earlier PXE artifact and mirror failures
 - improve the analyzer input schema
 - integrate an LLM behind a well-defined interface

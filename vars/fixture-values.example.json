@@ -1,8 +1,7 @@
 {
   "nexus_url": "https://nexus.internal.example.invalid",
   "nexus_registry": "registry.internal.example.invalid:5000",
-  "controller_name": "edge-controller",
+  "controller_name": "automation-controller",
   "cluster_name": "dev-kind",
   "notes": "Copy this to a local *.local.json file if you want to keep environment-specific values outside committed fixtures."
 }
-
