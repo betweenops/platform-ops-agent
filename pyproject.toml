@@ -11,7 +11,9 @@ requires-python = ">=3.10"
 authors = [
   { name = "Brian Friend" }
 ]
-dependencies = []
+dependencies = [
+  "kubernetes>=30.1.0",
+]
 
 [project.scripts]
 platform-ops-agent = "platform_ops_agent.cli:main"
@@ -21,4 +23,3 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-

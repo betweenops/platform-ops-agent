@@ -26,6 +26,8 @@ def analyze_scenario(scenario: dict) -> dict:
     scenario_type = scenario.get("scenario_type", "kubernetes_workload")
     if scenario_type == "ansible_operator_failure":
         return _analyze_ansible_operator_failure(scenario)
+    if scenario_type == "custom_resource":
+        return _analyze_custom_resource(scenario)
 
     metadata = scenario.get("metadata", {})
     pod_status = scenario.get("pod_status", {})
@@ -221,6 +223,10 @@ def render_text_report(report: dict) -> str:
     if message:
         lines.append(f"- message: {message}")
 
+    condition_types = evidence.get("condition_types")
+    if condition_types:
+        lines.append(f"- condition types: {condition_types}")
+
     return "\n".join(lines)
 
 
@@ -232,6 +238,151 @@ def _dedupe(items: list[str]) -> list[str]:
             deduped.append(item)
             seen.add(item)
     return deduped
+
+
+def _analyze_custom_resource(scenario: dict) -> dict:
+    metadata = scenario.get("metadata", {})
+    conditions = scenario.get("conditions", [])
+    events = scenario.get("events", [])
+    related_resources = scenario.get("related_resources", [])
+    logs = scenario.get("logs", [])
+
+    signals: list[str] = []
+    causes: list[str] = []
+    next_steps: list[str] = []
+
+    condition_index = {
+        item.get("type", ""): item
+        for item in conditions
+        if item.get("type")
+    }
+
+    failure_condition = next(
+        (
+            item for item in conditions
+            if str(item.get("type", "")).lower() in {"failure", "failed", "degraded"}
+            and str(item.get("status", "")).lower() == "true"
+        ),
+        None,
+    )
+    unhealthy_condition = next(
+        (
+            item for item in conditions
+            if str(item.get("type", "")).lower() in {"ready", "healthy", "synced", "successful"}
+            and str(item.get("status", "")).lower() == "false"
+        ),
+        None,
+    )
+    running_condition = next(
+        (
+            item for item in conditions
+            if str(item.get("type", "")).lower() == "running"
+        ),
+        None,
+    )
+
+    health = "healthy"
+    primary_condition = failure_condition or unhealthy_condition or running_condition
+
+    if failure_condition:
+        health = "failed"
+        signals.append(
+            f"Condition '{failure_condition.get('type')}' is True with reason "
+            f"'{failure_condition.get('reason', 'unknown')}'."
+        )
+        causes.append(
+            failure_condition.get("message")
+            or "The custom resource reported an explicit failure condition."
+        )
+
+    if unhealthy_condition:
+        health = "failed"
+        signals.append(
+            f"Condition '{unhealthy_condition.get('type')}' is False with reason "
+            f"'{unhealthy_condition.get('reason', 'unknown')}'."
+        )
+        causes.append(
+            unhealthy_condition.get("message")
+            or "The resource is not yet ready or synchronized."
+        )
+
+    if running_condition and health != "failed":
+        running_reason = str(running_condition.get("reason", "")).lower()
+        if running_reason in {"failed", "error"}:
+            health = "failed"
+        elif str(running_condition.get("status", "")).lower() == "true":
+            health = "progressing"
+        signals.append(
+            f"Condition 'Running' reports reason '{running_condition.get('reason', 'unknown')}'."
+        )
+        if running_condition.get("message"):
+            causes.append(running_condition["message"])
+
+    event_reasons = {event.get("reason", "") for event in events}
+    event_messages = " ".join(event.get("message", "") for event in events).lower()
+    joined_logs = "\n".join(logs).lower()
+
+    if any(reason in event_reasons for reason in ("Warning", "Failed", "BackOff", "FailedMount")):
+        health = "failed" if health == "healthy" else health
+        signals.append("Recent warning events were emitted for this resource or its dependents.")
+
+    if "forbidden" in event_messages or "forbidden" in joined_logs:
+        health = "failed"
+        causes.append("The controller likely hit an RBAC denial while reconciling this resource.")
+        next_steps.append("Check the controller service account permissions for this resource and its dependencies.")
+
+    if any(token in event_messages or token in joined_logs for token in ("not found", "missing", "does not exist")):
+        causes.append("A referenced dependency or generated object may be missing.")
+        next_steps.append("Verify referenced objects exist with the expected names, kinds, and namespaces.")
+
+    if any(token in event_messages or token in joined_logs for token in ("timeout", "timed out", "connection refused")):
+        causes.append("A downstream service or endpoint was unreachable during reconciliation.")
+        next_steps.append("Check network reachability and dependent service health from the controller's execution path.")
+
+    if related_resources:
+        signals.append("The resource declares dependencies or related objects that may explain the reconciliation state.")
+        next_steps.append("Inspect the related resources and compare their status conditions against this resource's failure point.")
+
+    if not signals:
+        if conditions:
+            health = "progressing"
+            signals.append("The resource has conditions, but none matched a known failure signature.")
+            causes.append("The controller may still be reconciling, or the condition types are not yet covered by the analyzer.")
+            next_steps.append("Review the current condition set and add a rule for this controller's status model if needed.")
+        else:
+            health = "unknown"
+            signals.append("The resource exposed no status conditions and no related workload evidence was collected.")
+            causes.append("The analyzer needs either controller-specific conditions or richer related-object context.")
+            next_steps.append("Capture controller logs and related object status for this custom resource type.")
+
+    summary = (
+        f"{metadata.get('kind', 'resource')} {metadata.get('name', 'unknown')} in namespace "
+        f"{metadata.get('namespace', 'default')} is {health}. "
+        f"Primary signal: {signals[0]}"
+    )
+
+    return {
+        "metadata": metadata,
+        "health": health,
+        "summary": summary,
+        "signals": _dedupe(signals),
+        "likely_causes": _dedupe(causes),
+        "next_steps": _dedupe(next_steps),
+        "operator_context": {
+            "condition_count": len(conditions),
+            "primary_condition_type": primary_condition.get("type") if primary_condition else None,
+            "primary_condition_reason": primary_condition.get("reason") if primary_condition else None,
+            "related_resources": ", ".join(
+                f"{item.get('kind', 'Resource')}/{item.get('name', 'unknown')}"
+                for item in related_resources
+            ) or None,
+        },
+        "evidence": {
+            "event_count": len(events),
+            "log_line_count": len(logs),
+            "condition_types": ", ".join(sorted(condition_index.keys())) or None,
+        },
+    }
 
 
 PLAYBOOK_INTENTS = {

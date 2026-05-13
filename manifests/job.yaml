@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: platform-ops-agent-analysis
+  namespace: platform-ops-agent
+spec:
+  template:
+    spec:
+      serviceAccountName: platform-ops-agent
+      restartPolicy: Never
+      containers:
+        - name: agent
+          image: ghcr.io/your-org/platform-ops-agent:latest
+          args:
+            - analyze-live
+            - --api-version
+            - apps/v1
+            - --kind
+            - Deployment
+            - --namespace
+            - default
+            - --name
+            - example-app
+

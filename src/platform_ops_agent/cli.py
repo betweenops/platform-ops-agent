@@ -10,6 +10,10 @@ from platform_ops_agent.analyzer import (
     load_scenario,
     render_text_report,
 )
+from platform_ops_agent.live_cluster import (
+    build_workload_scenario,
+    collect_live_workload,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +31,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     analyze_parser.add_argument("scenario", help="Fixture name or path to JSON scenario.")
     analyze_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Render the full analysis report as JSON.",
+    )
+
+    live_parser = subparsers.add_parser(
+        "analyze-live",
+        help="Collect live Kubernetes data for a workload and analyze it.",
+    )
+    live_parser.add_argument("--api-version", required=True, help="Target API version, for example apps/v1.")
+    live_parser.add_argument("--kind", required=True, help="Target kind, for example Deployment or Pod.")
+    live_parser.add_argument("--namespace", required=True, help="Target namespace.")
+    live_parser.add_argument("--name", required=True, help="Target object name.")
+    live_parser.add_argument("--container", help="Optional container name when collecting pod logs.")
+    live_parser.add_argument("--context", help="Optional kubeconfig context name.")
+    live_parser.add_argument("--kubeconfig", help="Optional kubeconfig path.")
+    live_parser.add_argument(
+        "--tail-lines",
+        type=int,
+        default=100,
+        help="Number of pod log lines to fetch. Defaults to 100.",
+    )
+    live_parser.add_argument(
         "--json",
         action="store_true",
         help="Render the full analysis report as JSON.",
@@ -50,6 +77,28 @@ def main(argv: list[str] | None = None) -> int:
         except FileNotFoundError:
             parser.error(f"scenario not found: {args.scenario}")
         report = analyze_scenario(scenario)
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            print(render_text_report(report))
+        return 0
+
+    if args.command == "analyze-live":
+        try:
+            collected = collect_live_workload(
+                api_version=args.api_version,
+                kind=args.kind,
+                namespace=args.namespace,
+                name=args.name,
+                container=args.container,
+                context=args.context,
+                kubeconfig=args.kubeconfig,
+                tail_lines=args.tail_lines,
+            )
+        except Exception as exc:
+            parser.error(str(exc))
+
+        report = analyze_scenario(build_workload_scenario(collected))
         if args.json:
             print(json.dumps(report, indent=2))
         else:

@@ -37,6 +37,41 @@ class AnalyzerTests(unittest.TestCase):
         self.assertTrue(any("downstream symptom" in signal.lower() for signal in report["signals"]))
         self.assertTrue(any("boot images" in cause.lower() or "initrd" in cause.lower() for cause in report["likely_causes"]))
 
+    def test_custom_resource_failure_uses_conditions_and_dependencies(self) -> None:
+        report = analyze_scenario(
+            {
+                "scenario_type": "custom_resource",
+                "metadata": {
+                    "name": "site-a",
+                    "namespace": "ops-system",
+                    "kind": "PlatformInstallation",
+                },
+                "conditions": [
+                    {
+                        "type": "Ready",
+                        "status": "False",
+                        "reason": "DependencyNotReady",
+                        "message": "BootProvisioning/boot-prep-a is not yet ready.",
+                    }
+                ],
+                "related_resources": [
+                    {"kind": "BootProvisioning", "name": "boot-prep-a"},
+                ],
+                "events": [
+                    {
+                        "type": "Warning",
+                        "reason": "DependencyNotReady",
+                        "message": "Waiting for BootProvisioning/boot-prep-a",
+                    }
+                ],
+                "logs": [],
+            }
+        )
+
+        self.assertEqual(report["health"], "failed")
+        self.assertEqual(report["operator_context"]["primary_condition_type"], "Ready")
+        self.assertIn("BootProvisioning/boot-prep-a", report["operator_context"]["related_resources"])
+
 
 if __name__ == "__main__":
     unittest.main()
