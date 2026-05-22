@@ -1,0 +1,43 @@
+{
+  "scenario_type": "ansible_operator_failure",
+  "metadata": {
+    "name": "boot-prep-lab01",
+    "namespace": "ops-system",
+    "kind": "BootProvisioning",
+    "group": "automation.example.io"
+  },
+  "operator_context": {
+    "controller": "automation-controller",
+    "playbook": "playbooks/provisioning/provisioning.yml",
+    "imported_playbook": "playbooks/provisioning/provisioning_pb.yml",
+    "playbook_family": "provisioning"
+  },
+  "rendered_artifacts": {
+    "dhcp_config": {
+      "path": "/etc/dhcp/dhcpd.json.conf",
+      "rendered_reservations": 3,
+      "expected_systems": 4,
+      "missing_hosts": ["node-04.internal.example.invalid"]
+    }
+  },
+  "ansible_failure": {
+    "playbook_family": "provisioning",
+    "host": "controller-node",
+    "task_name": "Render DHCP reservations",
+    "task_file": "roles/provisioning/tasks/render_dhcp.yml",
+    "module": "ansible.builtin.template",
+    "message": "Host node-04.internal.example.invalid did not request DHCP within timeout",
+    "stderr": "fatal: [controller-node]: FAILED! => {\"changed\": false, \"msg\": \"Host node-04.internal.example.invalid did not request DHCP within timeout\"}"
+  },
+  "logs": [
+    "TASK [provisioning : Discover systems via out-of-band management] *********************",
+    "ok: [controller-node] => {\"systems_discovered\": 3}",
+    "TASK [provisioning : Render DHCP reservations] ****************************************",
+    "ok: [controller-node] => {\"changed\": true, \"dest\": \"/etc/dhcp/dhcpd.json.conf\"}",
+    "TASK [provisioning : Restart DHCP container] *****************************************",
+    "ok: [controller-node]",
+    "fatal: [controller-node]: FAILED! => {\"changed\": false, \"msg\": \"Host node-04.internal.example.invalid did not request DHCP within timeout\"}",
+    "PLAY RECAP **************************************************************************",
+    "controller-node : ok=9 changed=2 unreachable=0 failed=1 skipped=0 rescued=0 ignored=0"
+  ]
+}

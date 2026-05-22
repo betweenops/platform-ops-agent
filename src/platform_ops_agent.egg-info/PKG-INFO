@@ -1,3 +1,12 @@
+Metadata-Version: 2.4
+Name: platform-ops-agent
+Version: 0.1.0
+Summary: CLI-first MVP for AI-assisted platform operations workflows
+Author: Brian Friend
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: kubernetes>=30.1.0
+
 # AI Platform Operations Agent
 
 AI-assisted troubleshooting for Kubernetes workloads and controller-driven platform operations.
@@ -12,11 +21,6 @@ Current capabilities include:
 - analyzing live Kubernetes workloads from a kubeconfig or in-cluster context
 - summarizing condition-driven custom resources
 - producing operator-focused failure summaries and next steps
-- distinguishing controller gating (waiting on upstream) from real reconciliation failures
-- recognizing BMC "system busy / in POST" rejections as human-intervention events rather than retryable failures
-- detecting stale rendered DHCP/PXE configuration when discovery was partial at render time
-- correlating GRUB TFTP timeouts against recent peer success to flag wedged tftp sessions
-- detecting Crossplane-Object-wrapped CRs and surfacing the correct re-run patch target
 
 ## What It Does
 
@@ -71,36 +75,6 @@ Analyze an air-gap wait-loop scenario:
 
 ```bash
 platform-ops-agent analyze ansible-airgap-wait-loop
-```
-
-Analyze a controller waiting on an upstream dependency (distinguished from real failures):
-
-```bash
-platform-ops-agent analyze ansible-dependency-gate-waiting
-```
-
-Analyze a BMC rejecting a configuration PATCH because the host is mid-POST:
-
-```bash
-platform-ops-agent analyze ansible-redfish-post-busy
-```
-
-Analyze a stale rendered DHCP config that's missing a late-discovered host:
-
-```bash
-platform-ops-agent analyze ansible-pxe-stale-dhcp-reservations
-```
-
-Analyze a wedged TFTP session blocking PXE for a single host:
-
-```bash
-platform-ops-agent analyze ansible-tftp-wedged-session
-```
-
-Analyze a custom resource wrapped by a Crossplane Object (surfaces the correct re-run target):
-
-```bash
-platform-ops-agent analyze custom-resource-with-crossplane-owner
 ```
 
 ## Live Cluster Usage

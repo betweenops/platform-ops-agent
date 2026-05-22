@@ -1,0 +1,43 @@
+{
+  "scenario_type": "custom_resource",
+  "metadata": {
+    "name": "boot-prep-a",
+    "namespace": "ops-system",
+    "kind": "BootProvisioning",
+    "api_version": "automation.example.io/v1alpha1"
+  },
+  "crossplane_owner": {
+    "name": "boot-prep-a-object",
+    "namespace": "ops-system",
+    "api_version": "kubernetes.crossplane.io/v1alpha2",
+    "kind": "Object"
+  },
+  "conditions": [
+    {
+      "type": "Ready",
+      "status": "False",
+      "reason": "DependencyNotReady",
+      "message": "HardwareControl/hardware-control-a is not yet ready."
+    },
+    {
+      "type": "Running",
+      "status": "True",
+      "reason": "Successful",
+      "message": "Awaiting next reconciliation"
+    }
+  ],
+  "related_resources": [
+    {
+      "kind": "HardwareControl",
+      "name": "hardware-control-a"
+    }
+  ],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "DependencyNotReady",
+      "message": "Waiting for HardwareControl/hardware-control-a"
+    }
+  ],
+  "logs": []
+}

@@ -101,6 +101,72 @@ class LiveClusterTests(unittest.TestCase):
         self.assertEqual(scenario["conditions"][0]["type"], "Ready")
         self.assertEqual(scenario["related_resources"][0]["name"], "boot-prep-a")
         self.assertEqual(scenario["events"][0]["reason"], "DependencyNotReady")
+        self.assertNotIn("crossplane_owner", scenario)
+
+    def test_extract_crossplane_owner_finds_kubernetes_provider_object(self) -> None:
+        collected = CollectedWorkload(
+            object_data={
+                "apiVersion": "automation.example.io/v1alpha1",
+                "kind": "BootProvisioning",
+                "metadata": {
+                    "name": "boot-prep-a",
+                    "namespace": "ops-system",
+                    "ownerReferences": [
+                        {
+                            "apiVersion": "kubernetes.crossplane.io/v1alpha2",
+                            "kind": "Object",
+                            "name": "boot-prep-a-object",
+                            "uid": "abc-123",
+                        }
+                    ],
+                },
+                "status": {
+                    "conditions": [
+                        {"type": "Ready", "status": "False", "reason": "DependencyNotReady"}
+                    ]
+                },
+            },
+            related_pods=[],
+            events=[],
+            logs=[],
+        )
+
+        scenario = build_workload_scenario(collected)
+
+        self.assertEqual(scenario["scenario_type"], "custom_resource")
+        self.assertIn("crossplane_owner", scenario)
+        self.assertEqual(scenario["crossplane_owner"]["name"], "boot-prep-a-object")
+        self.assertEqual(scenario["crossplane_owner"]["namespace"], "ops-system")
+        self.assertEqual(scenario["crossplane_owner"]["kind"], "Object")
+
+    def test_extract_crossplane_owner_ignores_other_owners(self) -> None:
+        collected = CollectedWorkload(
+            object_data={
+                "apiVersion": "automation.example.io/v1alpha1",
+                "kind": "BootProvisioning",
+                "metadata": {
+                    "name": "boot-prep-b",
+                    "namespace": "ops-system",
+                    "ownerReferences": [
+                        {
+                            "apiVersion": "automation.example.io/v1alpha1",
+                            "kind": "PlatformInstallation",
+                            "name": "site-a",
+                            "uid": "def-456",
+                        }
+                    ],
+                },
+                "status": {"conditions": []},
+            },
+            related_pods=[],
+            events=[],
+            logs=[],
+        )
+
+        scenario = build_workload_scenario(collected)
+
+        self.assertEqual(scenario["scenario_type"], "custom_resource")
+        self.assertNotIn("crossplane_owner", scenario)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,37 @@
+{
+  "scenario_type": "ansible_operator_failure",
+  "metadata": {
+    "name": "hardware-control-a",
+    "namespace": "ops-system",
+    "kind": "HardwareControl",
+    "group": "automation.example.io"
+  },
+  "operator_context": {
+    "controller": "automation-controller",
+    "playbook": "playbooks/hardware-control/hardware-control.yml",
+    "imported_playbook": "playbooks/hardware-control/hardware-control_pb.yml",
+    "playbook_family": "hardware-control"
+  },
+  "redfish_response": {
+    "status_code": 400,
+    "message_id": "iLO.2.25.UnableToModifyDuringSystemPOST",
+    "endpoint": "/redfish/v1/Systems/1"
+  },
+  "ansible_failure": {
+    "playbook_family": "hardware-control",
+    "host": "controller-node",
+    "task_name": "Patch boot source override",
+    "task_file": "roles/hardware-control/tasks/redfish_force_boot.yml",
+    "module": "community.general.redfish_config",
+    "message": "HTTP Error 400 on PATCH request to 'https://bmc-01.internal.example.invalid/redfish/v1/Systems/1', extended message: '[{\"MessageArgs\": [\"BootSourceOverrideTarget\"], \"MessageId\": \"iLO.2.25.UnableToModifyDuringSystemPOST\"}]'",
+    "stderr": "fatal: [controller-node]: FAILED! => {\"changed\": false, \"msg\": \"HTTP Error 400 on PATCH request to 'https://bmc-01.internal.example.invalid/redfish/v1/Systems/1'\"}"
+  },
+  "logs": [
+    "TASK [hardware-control : Get current boot override] *********************************",
+    "ok: [controller-node] => {\"changed\": false, \"redfish_facts\": {\"boot_override\": {\"entries\": [{\"BootSourceOverrideTarget\": \"None\"}]}}}",
+    "TASK [hardware-control : Patch boot source override] *********************************",
+    "fatal: [controller-node]: FAILED! => {\"changed\": false, \"msg\": \"HTTP Error 400 on PATCH request to 'https://bmc-01.internal.example.invalid/redfish/v1/Systems/1', extended message: '[{\\\"MessageArgs\\\": [\\\"BootSourceOverrideTarget\\\"], \\\"MessageId\\\": \\\"iLO.2.25.UnableToModifyDuringSystemPOST\\\"}]'\"}",
+    "PLAY RECAP **************************************************************************",
+    "controller-node : ok=12 changed=1 unreachable=0 failed=1 skipped=2 rescued=0 ignored=0"
+  ]
+}

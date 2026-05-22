@@ -1,0 +1,44 @@
+{
+  "scenario_type": "ansible_operator_failure",
+  "metadata": {
+    "name": "rke2-edge-a",
+    "namespace": "ops-system",
+    "kind": "ClusterBootstrap",
+    "group": "automation.example.io"
+  },
+  "operator_context": {
+    "controller": "automation-controller",
+    "playbook": "playbooks/cluster-bootstrap/cluster-bootstrap.yml",
+    "imported_playbook": "playbooks/cluster-bootstrap/cluster-bootstrap_pb.yml",
+    "playbook_family": "cluster-bootstrap"
+  },
+  "dependency_wait": {
+    "targets": [
+      {
+        "kind": "NodeConfiguration",
+        "name": "node-config-a",
+        "namespace": "ops-system"
+      }
+    ],
+    "upstream_state": "progressing"
+  },
+  "ansible_failure": {
+    "playbook_family": "cluster-bootstrap",
+    "host": "controller-node",
+    "task_name": "loop through dependencies",
+    "task_file": "roles/check_dependencies/tasks/main.yml",
+    "module": "ansible.builtin.set_fact",
+    "message": "All conditions do not match for dependency NodeConfiguration/node-config-a",
+    "stderr": "fatal: [controller-node]: FAILED! => {\"msg\": [\"All conditions do not match True False Running \"]}"
+  },
+  "logs": [
+    "TASK [check_dependencies : loop through dependencies] ********************************",
+    "ok: [controller-node] => (item={'kind': 'NodeConfiguration', 'name': 'node-config-a', 'apiVersion': 'automation.example.io/v1alpha1'})",
+    "TASK [check_dependencies : check if all conditions exist] ****************************",
+    "skipping: [controller-node] => {\"skip_reason\": \"Conditional result was False\"}",
+    "TASK [check_dependencies : check if all conditions match] ****************************",
+    "fatal: [controller-node]: FAILED! => {\"msg\": [\"All conditions do not match True False Running \"]}",
+    "PLAY RECAP **************************************************************************",
+    "controller-node : ok=5 changed=0 unreachable=0 failed=1 skipped=1 rescued=0 ignored=0"
+  ]
+}

@@ -74,7 +74,7 @@ def build_workload_scenario(collected: CollectedWorkload) -> dict[str, Any]:
     normalized_kind = kind.lower()
 
     if normalized_kind not in WORKLOAD_KINDS:
-        return {
+        scenario: dict[str, Any] = {
             "scenario_type": "custom_resource",
             "metadata": {
                 "name": metadata.get("name", "unknown"),
@@ -87,6 +87,10 @@ def build_workload_scenario(collected: CollectedWorkload) -> dict[str, Any]:
             "events": [_normalize_event(event) for event in collected.events],
             "logs": collected.logs,
         }
+        crossplane_owner = _extract_crossplane_owner(metadata)
+        if crossplane_owner:
+            scenario["crossplane_owner"] = crossplane_owner
+        return scenario
 
     pod = _select_primary_pod(collected.related_pods)
     pod_status = _build_pod_status(pod)
@@ -282,6 +286,37 @@ def _normalize_conditions(conditions: list[dict[str, Any]]) -> list[dict[str, An
             }
         )
     return normalized
+
+
+def _extract_crossplane_owner(metadata: dict[str, Any]) -> dict[str, Any] | None:
+    """Return Crossplane Object owner info if the resource is wrapped by one.
+
+    Patching the inner CR directly does not stick when ownership is held by a
+    Crossplane provider-kubernetes Object; the Object is the source of truth
+    and will revert changes. This helper surfaces the owning Object's identity
+    so the analyzer can suggest patching the right resource.
+    """
+    owner_references = metadata.get("ownerReferences") or metadata.get("owner_references") or []
+    namespace = metadata.get("namespace", "default")
+    for ref in owner_references:
+        if not isinstance(ref, dict):
+            continue
+        api_version = ref.get("apiVersion") or ref.get("api_version") or ""
+        kind = ref.get("kind", "")
+        name = ref.get("name", "")
+        if (
+            isinstance(api_version, str)
+            and api_version.startswith("kubernetes.crossplane.io/")
+            and kind == "Object"
+            and name
+        ):
+            return {
+                "name": name,
+                "namespace": namespace,
+                "api_version": api_version,
+                "kind": "Object",
+            }
+    return None
 
 
 def _extract_related_resources(object_data: dict[str, Any]) -> list[dict[str, Any]]:

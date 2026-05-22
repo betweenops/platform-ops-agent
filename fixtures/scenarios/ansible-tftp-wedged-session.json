@@ -1,0 +1,48 @@
+{
+  "scenario_type": "ansible_operator_failure",
+  "metadata": {
+    "name": "hardware-control-b",
+    "namespace": "ops-system",
+    "kind": "HardwareControl",
+    "group": "automation.example.io"
+  },
+  "operator_context": {
+    "controller": "automation-controller",
+    "playbook": "playbooks/hardware-control/hardware-control.yml",
+    "imported_playbook": "playbooks/hardware-control/hardware-control_pb.yml",
+    "playbook_family": "hardware-control"
+  },
+  "peer_evidence": {
+    "service": "tftp",
+    "container": "tftpd-hpa",
+    "peers_succeeded_recently": [
+      {
+        "host": "node-01.internal.example.invalid",
+        "minutes_ago": 4
+      },
+      {
+        "host": "node-02.internal.example.invalid",
+        "minutes_ago": 6
+      }
+    ]
+  },
+  "ansible_failure": {
+    "playbook_family": "hardware-control",
+    "host": "controller-node",
+    "task_name": "Wait for server to come back online",
+    "task_file": "playbooks/hardware-control/hardware-control_pb.yml",
+    "module": "ansible.builtin.wait_for",
+    "message": "Timeout when waiting for node-05.internal.example.invalid:22",
+    "stderr": "fatal: [controller-node -> localhost]: FAILED! => {\"changed\": false, \"elapsed\": 120, \"msg\": \"Timeout when waiting for node-05.internal.example.invalid:22\"}"
+  },
+  "logs": [
+    "TASK [hardware-control : Force PXE boot on target] *********************************",
+    "ok: [controller-node] => (item=node-05.internal.example.invalid)",
+    "GRUB console capture from BMC virtual serial: error: time out opening `/debian-installer/amd64/linux`.",
+    "GRUB console capture from BMC virtual serial: error: you need to load the kernel first.",
+    "TASK [Wait for server to come back online] *****************************************",
+    "fatal: [controller-node -> localhost]: FAILED! => {\"changed\": false, \"elapsed\": 120, \"msg\": \"Timeout when waiting for node-05.internal.example.invalid:22\"}",
+    "PLAY RECAP **************************************************************************",
+    "controller-node : ok=8 changed=2 unreachable=0 failed=1 skipped=0 rescued=0 ignored=0"
+  ]
+}
